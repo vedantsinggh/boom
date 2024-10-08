@@ -10,7 +10,7 @@
 #define ROTATION_SPEED 0.1f
 #define PLAYER_RADIUS 10
 #define ANGLE_OF_VIEW 60
-#define LINE_OF_VIEW  100
+#define LINE_OF_VIEW  400
 
 int maps[10][10] =  {
     {1,1,1,1,1,1,1,1,1,1},
@@ -59,13 +59,7 @@ void Grid() {
     }
 }
 
-void DrawPlayer(Vector3 pos) {
-    DrawCircle(pos.x, pos.y, PLAYER_RADIUS, RED);
-    DrawCircleSector((Vector2){pos.x, pos.y}, PLAYER_RADIUS, pos.z - ANGLE_OF_VIEW / 2, pos.z + ANGLE_OF_VIEW / 2, 5, YELLOW);
-    
-    Vector2 centerRay = Polar2Cart((Line){pos.z, LINE_OF_VIEW});
-    Vector2 rayEnd = {centerRay.x + pos.x, centerRay.y + pos.y};
-
+Vector2 GetNearestSnappedPoint(Vector3 pos){
     Vector2 snappedPointX;
 	if(pos.z < 90 || pos.z > 270) snappedPointX.x = ceil(pos.x/GRID_LENGTH)*GRID_LENGTH;
 	else snappedPointX.x = floor(pos.x/GRID_LENGTH)*GRID_LENGTH;
@@ -91,15 +85,39 @@ void DrawPlayer(Vector3 pos) {
 	else if(pos.z > 270 && pos.z < 360) snappedPointY.x = pos.x + mag;
 	else snappedPointY.x = pos.x;
 
+    
+    if (distanceBtw((Vector2){pos.x, pos.y}, snappedPointX) < 
+			distanceBtw((Vector2){pos.x, pos.y}, snappedPointY))
+		return snappedPointX;
+	else 
+		return snappedPointY;
+}
+
+void DrawPlayer(Vector3 pos) {
+    DrawCircle(pos.x, pos.y, PLAYER_RADIUS, RED);
+    DrawCircleSector((Vector2){pos.x, pos.y}, PLAYER_RADIUS, pos.z - ANGLE_OF_VIEW / 2, pos.z + ANGLE_OF_VIEW / 2, 5, YELLOW);
+    
+    Vector2 centerRay = Polar2Cart((Line){pos.z, LINE_OF_VIEW});
+    Vector2 rayEnd = {centerRay.x + pos.x, centerRay.y + pos.y};
+
     DrawCircle(rayEnd.x, rayEnd.y, 2, GREEN);
     DrawLine(pos.x, pos.y, rayEnd.x, rayEnd.y, GREEN);
-    
-    if (
-			distanceBtw((Vector2){pos.x, pos.y}, snappedPointX) < 
-			distanceBtw((Vector2){pos.x, pos.y}, snappedPointY))
-		DrawCircleV(snappedPointX, 4, PINK);
-	else 
-		DrawCircleV(snappedPointY, 4, PINK);
+
+	Vector3 lastPoint = pos;
+	Vector2 lastNearestPoint;
+	float dist = 0;
+	for(int i=0; i <= LINE_OF_VIEW; i += dist){
+		lastNearestPoint = GetNearestSnappedPoint(lastPoint);
+		dist = distanceBtw((Vector2){lastPoint.x, lastPoint.y}, lastNearestPoint);
+		if(dist + i > LINE_OF_VIEW) break;
+		DrawCircleV(lastNearestPoint, 4, PINK);
+		TraceLog(LOG_INFO, "dist for point(%i): %f",i, dist);
+
+		Vector2 nextRay = Polar2Cart((Line){lastPoint.z, dist + 5});
+		lastPoint.x = nextRay.x + lastPoint.x;
+		lastPoint.y = nextRay.y + lastPoint.y;
+	}
+	TraceLog(LOG_INFO, "-------------------");
 }
 
 void Update(Vector3* player) {
