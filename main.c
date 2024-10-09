@@ -10,7 +10,7 @@
 #define ROTATION_SPEED 0.1f
 #define PLAYER_RADIUS 10
 #define ANGLE_OF_VIEW 60
-#define LINE_OF_VIEW  100
+#define LINE_OF_VIEW 100
 #define DELTA 5
 #define ANGLE_DELTA 1
 
@@ -99,22 +99,27 @@ void CreateRay(Vector3 pos, float angle){
     Vector2 angleRay = Polar2Cart((Line){pos.z, LINE_OF_VIEW});
     Vector2 rayEnd = {angleRay.x + pos.x, angleRay.y + pos.y};
 
-    DrawCircle(rayEnd.x, rayEnd.y, 2, GREEN);
-    DrawLine(pos.x, pos.y, rayEnd.x, rayEnd.y, GREEN);
+    //DrawCircle(rayEnd.x, rayEnd.y, 2, GREEN);
 
 	Vector3 lastPoint = pos;
 	Vector2 lastNearestPoint;
 	float dist = 0;
+	bool hit = false;
 	for(int i=0; i <= LINE_OF_VIEW; i += dist){
 		lastNearestPoint = GetNearestSnappedPoint(lastPoint);
 		dist = distanceBtw((Vector2){lastPoint.x, lastPoint.y}, lastNearestPoint);
 		if(dist + i > LINE_OF_VIEW) break;
-		DrawCircleV(lastNearestPoint, 4, PINK);
 
 		Vector2 nextRay = Polar2Cart((Line){lastPoint.z, dist + DELTA});
+		if (maps[(int)((lastPoint.y + nextRay.y)/GRID_LENGTH)][(int)((lastPoint.x + nextRay.x)/GRID_LENGTH)]){
+			DrawCircleV(lastNearestPoint, 4, PINK);
+			hit = true;
+			break;
+		}
 		lastPoint.x = nextRay.x + lastPoint.x;
 		lastPoint.y = nextRay.y + lastPoint.y;
 	}
+    DrawLine(pos.x, pos.y, hit ? lastNearestPoint.x : rayEnd.x, hit ? lastNearestPoint.y : rayEnd.y, GREEN);
 }
 
 void DrawPlayer(Vector3 pos) {
