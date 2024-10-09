@@ -10,7 +10,9 @@
 #define ROTATION_SPEED 0.1f
 #define PLAYER_RADIUS 10
 #define ANGLE_OF_VIEW 60
-#define LINE_OF_VIEW  400
+#define LINE_OF_VIEW  100
+#define DELTA 5
+#define ANGLE_DELTA 1
 
 int maps[10][10] =  {
     {1,1,1,1,1,1,1,1,1,1},
@@ -84,7 +86,6 @@ Vector2 GetNearestSnappedPoint(Vector3 pos){
 	else if(pos.z > 180 && pos.z < 270) snappedPointY.x = pos.x - mag;
 	else if(pos.z > 270 && pos.z < 360) snappedPointY.x = pos.x + mag;
 	else snappedPointY.x = pos.x;
-
     
     if (distanceBtw((Vector2){pos.x, pos.y}, snappedPointX) < 
 			distanceBtw((Vector2){pos.x, pos.y}, snappedPointY))
@@ -93,12 +94,10 @@ Vector2 GetNearestSnappedPoint(Vector3 pos){
 		return snappedPointY;
 }
 
-void DrawPlayer(Vector3 pos) {
-    DrawCircle(pos.x, pos.y, PLAYER_RADIUS, RED);
-    DrawCircleSector((Vector2){pos.x, pos.y}, PLAYER_RADIUS, pos.z - ANGLE_OF_VIEW / 2, pos.z + ANGLE_OF_VIEW / 2, 5, YELLOW);
-    
-    Vector2 centerRay = Polar2Cart((Line){pos.z, LINE_OF_VIEW});
-    Vector2 rayEnd = {centerRay.x + pos.x, centerRay.y + pos.y};
+void CreateRay(Vector3 pos, float angle){
+	pos.z += angle;
+    Vector2 angleRay = Polar2Cart((Line){pos.z, LINE_OF_VIEW});
+    Vector2 rayEnd = {angleRay.x + pos.x, angleRay.y + pos.y};
 
     DrawCircle(rayEnd.x, rayEnd.y, 2, GREEN);
     DrawLine(pos.x, pos.y, rayEnd.x, rayEnd.y, GREEN);
@@ -111,13 +110,20 @@ void DrawPlayer(Vector3 pos) {
 		dist = distanceBtw((Vector2){lastPoint.x, lastPoint.y}, lastNearestPoint);
 		if(dist + i > LINE_OF_VIEW) break;
 		DrawCircleV(lastNearestPoint, 4, PINK);
-		TraceLog(LOG_INFO, "dist for point(%i): %f",i, dist);
 
-		Vector2 nextRay = Polar2Cart((Line){lastPoint.z, dist + 5});
+		Vector2 nextRay = Polar2Cart((Line){lastPoint.z, dist + DELTA});
 		lastPoint.x = nextRay.x + lastPoint.x;
 		lastPoint.y = nextRay.y + lastPoint.y;
 	}
-	TraceLog(LOG_INFO, "-------------------");
+}
+
+void DrawPlayer(Vector3 pos) {
+    DrawCircle(pos.x, pos.y, PLAYER_RADIUS, RED);
+    DrawCircleSector((Vector2){pos.x, pos.y}, PLAYER_RADIUS, pos.z - ANGLE_OF_VIEW / 2, pos.z + ANGLE_OF_VIEW / 2, 5, YELLOW);
+    
+	for(int i= -1 * ANGLE_OF_VIEW/2; i <= ANGLE_OF_VIEW/2; i+= ANGLE_DELTA){
+		CreateRay(pos, i);
+	}
 }
 
 void Update(Vector3* player) {
