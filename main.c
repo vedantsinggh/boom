@@ -10,11 +10,11 @@
 #define ROTATION_SPEED 0.1f
 #define PLAYER_RADIUS 10
 #define ANGLE_OF_VIEW 60
-#define LINE_OF_VIEW 100
+#define LINE_OF_VIEW 1000
 #define DELTA 5
 #define ANGLE_DELTA 1
 
-int maps[10][10] =  {
+int maps[10][10] = {
     {1,1,1,1,1,1,1,1,1,1},
     {1,0,0,0,0,0,0,0,0,1},
     {1,0,0,1,0,0,0,0,0,1},
@@ -36,8 +36,8 @@ float Deg2Rad(float deg) {
     return (deg) * (PI / 180.0f);
 }
 
-float distanceBtw(Vector2 a, Vector2 b){
-	return sqrt(pow(a.x - b.x,2) + pow(a.y - b.y,2));
+float distanceBtw(Vector2 a, Vector2 b) {
+    return sqrt(pow(a.x - b.x, 2) + pow(a.y - b.y, 2));
 }
 
 Vector2 Polar2Cart(Line line) {
@@ -45,97 +45,67 @@ Vector2 Polar2Cart(Line line) {
     return (Vector2){cosf(theta) * line.r, sinf(theta) * line.r};
 }
 
-void Grid() {
-    for(int i = 0; i < GRID_SIZE; i++) {
-        for(int j = 0; j < GRID_SIZE; j++) {
-            if (maps[i][j] != 0) {
-                DrawRectangle(HEIGHT / GRID_SIZE * j, HEIGHT / GRID_SIZE * i, HEIGHT / GRID_SIZE , WIDTH / GRID_SIZE, BLUE);
-            }
+int CastRay(Vector3 pos, float angle) {
+    float rayDirX = cosf(Deg2Rad(angle));
+    float rayDirY = sinf(Deg2Rad(angle));
+    
+    float wallDist = 0;
+    int hit = 0;
+
+    while (wallDist < LINE_OF_VIEW && !hit) {
+        wallDist += 0.1f; 
+
+        int mapX = (int)(pos.x + rayDirX * wallDist) / GRID_LENGTH;
+        int mapY = (int)(pos.y + rayDirY * wallDist) / GRID_LENGTH;
+
+        if (mapX < 0 || mapX >= GRID_SIZE || mapY < 0 || mapY >= GRID_SIZE) break; 
+
+        if (maps[mapY][mapX] == 1) {
+            hit = 1;
         }
     }
-    for (int i = 0; i <= WIDTH; i += WIDTH / GRID_SIZE) {
-        DrawLine(i, 0, i, HEIGHT, BLACK);
+
+    return hit ? (int)wallDist : LINE_OF_VIEW;
+}
+
+void Draw3D(int* distances) {
+    const int res = (int)(ANGLE_OF_VIEW / ANGLE_DELTA);
+    for (int i = 0; i < res; i++) {
+        int wallDistance = distances[i];
+        if (wallDistance > 0 && wallDistance < LINE_OF_VIEW) {
+            int wallHeight = (int)(HEIGHT / wallDistance);
+            int wallWidth = (WIDTH / res);
+            
+            int xPosition = (i * wallWidth);
+            int yPosition = (HEIGHT / 2) - (wallHeight / 2);
+
+            if (yPosition < 0) yPosition = 0;
+            if (yPosition + wallHeight > HEIGHT) wallHeight = HEIGHT - yPosition;
+
+            DrawRectangle(xPosition, yPosition, wallWidth, wallHeight, (Color){139, 69, 19, 255}); 
+        }
     }
-    for (int i = 0; i <= HEIGHT; i += HEIGHT / GRID_SIZE) {
-        DrawLine(0, i, WIDTH, i, BLACK);
+}
+
+void DrawScreen(Vector3 player) {
+    int hght[(int)ANGLE_OF_VIEW / ANGLE_DELTA] = {0};
+    int counter = 0;
+
+    for (int i = -ANGLE_OF_VIEW / 2; i <= ANGLE_OF_VIEW / 2; i += ANGLE_DELTA) {
+        hght[counter] = CastRay(player, player.z + i);
+        counter++;
     }
+
+    Draw3D(hght);
 }
 
-Vector2 GetNearestSnappedPoint(Vector3 pos){
-    Vector2 snappedPointX;
-	if(pos.z < 90 || pos.z > 270) snappedPointX.x = ceil(pos.x/GRID_LENGTH)*GRID_LENGTH;
-	else snappedPointX.x = floor(pos.x/GRID_LENGTH)*GRID_LENGTH;
-
-	float dist = abs(pos.x - snappedPointX.x);
-	float mag = abs(tanf(pos.z * (PI/180.0f)) * dist);
-    if(pos.z > 0 && pos.z < 90) snappedPointX.y = pos.y + mag;
-	else if(pos.z > 90 && pos.z < 180) snappedPointX.y = pos.y + mag;
-	else if(pos.z > 180 && pos.z < 270) snappedPointX.y = pos.y - mag;
-	else if(pos.z > 270 && pos.z < 360) snappedPointX.y = pos.y - mag;
-	else snappedPointX.y = pos.y;
-
-    Vector2 snappedPointY;
-	if(pos.z < 180) snappedPointY.y = ceil(pos.y/GRID_LENGTH)*GRID_LENGTH;
-	else snappedPointY.y = floor(pos.y/GRID_LENGTH)*GRID_LENGTH;
-	snappedPointY.x = pos.x;
-
-	dist = abs(pos.y - snappedPointY.y);
-	mag = abs(tanf((90 - pos.z) * (PI/180.0f)) * dist);
-    if(pos.z > 0 && pos.z < 90) snappedPointY.x = pos.x + mag;
-	else if(pos.z > 90 && pos.z < 180) snappedPointY.x = pos.x -  mag;
-	else if(pos.z > 180 && pos.z < 270) snappedPointY.x = pos.x - mag;
-	else if(pos.z > 270 && pos.z < 360) snappedPointY.x = pos.x + mag;
-	else snappedPointY.x = pos.x;
-    
-    if (distanceBtw((Vector2){pos.x, pos.y}, snappedPointX) < 
-			distanceBtw((Vector2){pos.x, pos.y}, snappedPointY))
-		return snappedPointX;
-	else 
-		return snappedPointY;
-}
-
-void CreateRay(Vector3 pos, float angle){
-	pos.z += angle;
-    Vector2 angleRay = Polar2Cart((Line){pos.z, LINE_OF_VIEW});
-    Vector2 rayEnd = {angleRay.x + pos.x, angleRay.y + pos.y};
-
-    //DrawCircle(rayEnd.x, rayEnd.y, 2, GREEN);
-
-	Vector3 lastPoint = pos;
-	Vector2 lastNearestPoint;
-	float dist = 0;
-	bool hit = false;
-	for(int i=0; i <= LINE_OF_VIEW; i += dist){
-		lastNearestPoint = GetNearestSnappedPoint(lastPoint);
-		dist = distanceBtw((Vector2){lastPoint.x, lastPoint.y}, lastNearestPoint);
-		if(dist + i > LINE_OF_VIEW) break;
-
-		Vector2 nextRay = Polar2Cart((Line){lastPoint.z, dist + DELTA});
-		if (maps[(int)((lastPoint.y + nextRay.y)/GRID_LENGTH)][(int)((lastPoint.x + nextRay.x)/GRID_LENGTH)]){
-			DrawCircleV(lastNearestPoint, 4, PINK);
-			hit = true;
-			break;
-		}
-		lastPoint.x = nextRay.x + lastPoint.x;
-		lastPoint.y = nextRay.y + lastPoint.y;
-	}
-    DrawLine(pos.x, pos.y, hit ? lastNearestPoint.x : rayEnd.x, hit ? lastNearestPoint.y : rayEnd.y, GREEN);
-}
-
-void DrawPlayer(Vector3 pos) {
-    DrawCircle(pos.x, pos.y, PLAYER_RADIUS, RED);
-    DrawCircleSector((Vector2){pos.x, pos.y}, PLAYER_RADIUS, pos.z - ANGLE_OF_VIEW / 2, pos.z + ANGLE_OF_VIEW / 2, 5, YELLOW);
-    
-	for(int i= -1 * ANGLE_OF_VIEW/2; i <= ANGLE_OF_VIEW/2; i+= ANGLE_DELTA){
-		CreateRay(pos, i);
-	}
-}
-
-void Update(Vector3* player) {
+void UpdateControl(Vector3* player) {
     if (IsKeyDown(KEY_RIGHT)) player->z += ROTATION_SPEED;
     if (IsKeyDown(KEY_LEFT)) player->z -= ROTATION_SPEED;
-	if (player->z < 0) player->z += 360;
-	if (player->z > 360) player->z -= 360;
+
+    if (player->z < 0) player->z += 360;
+    if (player->z > 360) player->z -= 360;
+
     if (IsKeyDown(KEY_UP)) {
         player->x += cosf(player->z * (PI / 180.0f)) * SPEED;
         player->y += sinf(player->z * (PI / 180.0f)) * SPEED;
@@ -152,16 +122,14 @@ void Update(Vector3* player) {
 }
 
 int main(void) {
-    InitWindow(WIDTH, HEIGHT, "BOOM");
-
+    InitWindow(WIDTH, HEIGHT, "Doom-like Raycasting");
     Vector3 player = {GRID_LENGTH * 1.5f, GRID_LENGTH * 1.5f, 0}; 
 
     while (!WindowShouldClose()) {
-        Update(&player);
+        UpdateControl(&player);
         BeginDrawing();
             ClearBackground(RAYWHITE);
-            Grid();
-            DrawPlayer(player);
+            DrawScreen(player);
         EndDrawing();
     }
 
